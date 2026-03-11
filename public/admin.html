@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - QR Code Manager</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Admin Panel</h1>
+    <p class="subtitle">Manage all QR codes</p>
+
+    <!-- Stats -->
+    <div class="card stats-card">
+      <div class="stats">
+        <div class="stat">
+          <span class="stat-value" id="totalCodes">0</span>
+          <span class="stat-label">Total QR Codes</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value" id="totalScans">0</span>
+          <span class="stat-label">Total Scans</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- QR codes list -->
+    <h2 class="section-title">All QR Codes</h2>
+    <div id="qrList" class="qr-list">
+      <p class="empty-state">No QR codes yet.</p>
+    </div>
+  </div>
+
+  <!-- Edit modal -->
+  <div id="editModal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Edit QR Code</h2>
+      <form id="editForm">
+        <input type="hidden" id="editId">
+        <div class="form-group">
+          <label for="editName">Label / Name</label>
+          <input type="text" id="editName" required>
+        </div>
+        <div class="form-group">
+          <label for="editUrl">Destination URL</label>
+          <input type="url" id="editUrl" required>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Admin credentials are sent via Basic Auth (browser handles the prompt)
+    const headers = {};
+
+    function getAuthHeaders() {
+      return headers;
+    }
+
+    async function adminFetch(url, options = {}) {
+      options.headers = { ...options.headers, ...getAuthHeaders() };
+      const res = await fetch(url, options);
+      if (res.status === 401) {
+        alert('Authentication failed. Reload the page to try again.');
+      }
+      return res;
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    async function loadQRCodes() {
+      const res = await adminFetch('/api/admin/qrcodes');
+      if (!res.ok) return;
+      const codes = await res.json();
+
+      document.getElementById('totalCodes').textContent = codes.length;
+      document.getElementById('totalScans').textContent = codes.reduce((sum, c) => sum + c.scans, 0);
+
+      const qrList = document.getElementById('qrList');
+      if (codes.length === 0) {
+        qrList.innerHTML = '<p class="empty-state">No QR codes yet.</p>';
+        return;
+      }
+
+      qrList.innerHTML = '';
+      for (const code of codes) {
+        const imgRes = await adminFetch(`/api/admin/qrcodes/${code.id}/image`);
+        const imgData = await imgRes.json();
+        const redirectUrl = `${location.origin}/r/${code.id}`;
+
+        const item = document.createElement('div');
+        item.className = 'qr-item';
+        item.innerHTML = `
+          <img src="${imgData.qr_data_url}" alt="QR Code for ${escapeHtml(code.name)}">
+          <div class="qr-info">
+            <h3>${escapeHtml(code.name)}</h3>
+            <div class="url">Destination: ${escapeHtml(code.destination_url)}</div>
+            <div class="redirect-url">QR points to: ${escapeHtml(redirectUrl)}</div>
+            <div class="meta">
+              Scans: ${code.scans}
+              &middot; Created: ${new Date(code.created_at + 'Z').toLocaleDateString()}
+              &middot; Updated: ${new Date(code.updated_at + 'Z').toLocaleDateString()}
+            </div>
+            <div class="qr-actions">
+              <button class="btn btn-primary btn-sm" data-edit="${code.id}">Edit Link</button>
+              <button class="btn btn-secondary btn-sm" data-download="${code.id}" data-name="${escapeHtml(code.name)}">Download</button>
+              <button class="btn btn-danger btn-sm" data-delete="${code.id}">Delete</button>
+            </div>
+          </div>
+        `;
+
+        item.querySelector('[data-edit]').addEventListener('click', () => {
+          openEdit(code.id, code.name, code.destination_url);
+        });
+
+        item.querySelector('[data-download]').addEventListener('click', () => {
+          const link = document.createElement('a');
+          link.download = `qr-${code.name}.png`;
+          link.href = imgData.qr_data_url;
+          link.click();
+        });
+
+        item.querySelector('[data-delete]').addEventListener('click', async () => {
+          if (!confirm('Delete this QR code? This cannot be undone.')) return;
+          const delRes = await adminFetch(`/api/admin/qrcodes/${code.id}`, { method: 'DELETE' });
+          if (delRes.ok) loadQRCodes();
+        });
+
+        qrList.appendChild(item);
+      }
+    }
+
+    function openEdit(id, name, url) {
+      document.getElementById('editId').value = id;
+      document.getElementById('editName').value = name;
+      document.getElementById('editUrl').value = url;
+      document.getElementById('editModal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('editModal').classList.add('hidden');
+    }
+
+    document.getElementById('editModal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('editModal')) closeModal();
+    });
+
+    document.getElementById('editForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('editId').value;
+      const name = document.getElementById('editName').value.trim();
+      const url = document.getElementById('editUrl').value.trim();
+
+      const res = await adminFetch(`/api/admin/qrcodes/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, destination_url: url }),
+      });
+
+      if (res.ok) {
+        closeModal();
+        loadQRCodes();
+      }
+    });
+
+    loadQRCodes();
+  </script>
+</body>
+</html>

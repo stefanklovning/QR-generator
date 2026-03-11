@@ -27,35 +27,65 @@
       </form>
     </div>
 
-    <!-- QR codes list -->
-    <h2 class="section-title">Your QR Codes</h2>
-    <div id="qrList" class="qr-list">
-      <p class="empty-state">No QR codes yet. Create one above!</p>
+    <!-- Result (shown after creation) -->
+    <div id="result" class="card hidden">
+      <h2>Your QR Code</h2>
+      <div class="result-content">
+        <img id="resultImg" src="" alt="QR Code">
+        <div class="result-info">
+          <p><strong id="resultName"></strong></p>
+          <p class="url" id="resultDest"></p>
+          <p class="redirect-url" id="resultRedirect"></p>
+          <button class="btn btn-secondary btn-sm" id="downloadBtn">Download PNG</button>
+        </div>
+      </div>
     </div>
+
+    <p class="rate-info">Limited to 10 QR codes per hour per IP address.</p>
   </div>
 
-  <!-- Edit modal -->
-  <div id="editModal" class="modal hidden">
-    <div class="modal-content">
-      <h2>Edit QR Code</h2>
-      <form id="editForm">
-        <input type="hidden" id="editId">
-        <div class="form-group">
-          <label for="editName">Label / Name</label>
-          <input type="text" id="editName" required>
-        </div>
-        <div class="form-group">
-          <label for="editUrl">Destination URL</label>
-          <input type="url" id="editUrl" required>
-        </div>
-        <div class="modal-actions">
-          <button type="submit" class="btn btn-primary">Save Changes</button>
-          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-        </div>
-      </form>
-    </div>
-  </div>
+  <script>
+    const createForm = document.getElementById('createForm');
+    const result = document.getElementById('result');
 
-  <script src="app.js"></script>
+    createForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('name').value.trim();
+      const url = document.getElementById('url').value.trim();
+
+      const res = await fetch('/api/qrcodes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, destination_url: url }),
+      });
+
+      if (res.status === 429) {
+        alert('Rate limit reached. Please try again later.');
+        return;
+      }
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || 'Something went wrong');
+        return;
+      }
+
+      const data = await res.json();
+      document.getElementById('resultImg').src = data.qr_data_url;
+      document.getElementById('resultName').textContent = data.name;
+      document.getElementById('resultDest').textContent = 'Destination: ' + data.destination_url;
+      document.getElementById('resultRedirect').textContent = 'QR points to: ' + data.redirect_url;
+      result.classList.remove('hidden');
+
+      document.getElementById('downloadBtn').onclick = () => {
+        const link = document.createElement('a');
+        link.download = `qr-${data.name}.png`;
+        link.href = data.qr_data_url;
+        link.click();
+      };
+
+      createForm.reset();
+    });
+  </script>
 </body>
 </html>
