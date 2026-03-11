@@ -9,7 +9,10 @@ const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
 // --- Database setup ---
-const db = new Database(path.join(__dirname, 'qrcodes.db'));
+const fs = require('fs');
+const dbDir = process.env.DB_PATH || __dirname;
+if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+const db = new Database(path.join(dbDir, 'qrcodes.db'));
 db.pragma('journal_mode = WAL');
 
 db.exec(`
