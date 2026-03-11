@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dynamic QR Code Generator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Dynamic QR Code Generator</h1>
+    <p class="subtitle">Create QR codes with changeable destination links</p>
+
+    <!-- Create form -->
+    <div class="card create-card">
+      <h2>Create New QR Code</h2>
+      <form id="createForm">
+        <div class="form-group">
+          <label for="name">Label / Name</label>
+          <input type="text" id="name" placeholder="e.g. My Website" required>
+        </div>
+        <div class="form-group">
+          <label for="url">Destination URL</label>
+          <input type="url" id="url" placeholder="https://example.com" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Generate QR Code</button>
+      </form>
+    </div>
+
+    <!-- QR codes list -->
+    <h2 class="section-title">Your QR Codes</h2>
+    <div id="qrList" class="qr-list">
+      <p class="empty-state">No QR codes yet. Create one above!</p>
+    </div>
+  </div>
+
+  <!-- Edit modal -->
+  <div id="editModal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Edit QR Code</h2>
+      <form id="editForm">
+        <input type="hidden" id="editId">
+        <div class="form-group">
+          <label for="editName">Label / Name</label>
+          <input type="text" id="editName" required>
+        </div>
+        <div class="form-group">
+          <label for="editUrl">Destination URL</label>
+          <input type="url" id="editUrl" required>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
